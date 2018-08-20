@@ -1,0 +1,6 @@
+README.md
+gym_backgammon.egg-info/PKG-INFO
+gym_backgammon.egg-info/SOURCES.txt
+gym_backgammon.egg-info/dependency_links.txt
+gym_backgammon.egg-info/requires.txt
+gym_backgammon.egg-info/top_level.txt
