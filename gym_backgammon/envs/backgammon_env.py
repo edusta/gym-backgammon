@@ -22,11 +22,10 @@ class BackgammonEnv(gym.Env):
     info = \
     {
         'reward_valid_move': 1,
-        'reward_invalid_move': -0.01,
+        'reward_invalid_move': -1,
         'reward_winner': 0,
         'reward_loser': 0,
         'enable_double': False,
-        'is_action_scaled': False
     }
 
     current_step = 0
@@ -42,140 +41,64 @@ class BackgammonEnv(gym.Env):
         '''
 
         self.action_count = 8 if BackgammonEnv.info['enable_double'] else 4
-        self.is_action_scaled = BackgammonEnv.info['is_action_scaled']
-
+        self.current_action = np.asarray([0.0] * self.action_count)
         self.game = Game.new(BackgammonEnv.info)
 
         self.action_space = Box(low=np.array([0.0] * self.action_count), high=np.array([1.0] * self.action_count), dtype=np.float32)
-        self.observation_space = Box(low=0, high=1, shape=(149, ), dtype=np.float32)
+        self.observation_space = Box(low=0, high=1, shape=(153, ), dtype=np.float32)
 
     def step(self, action):
-        self.current_step += 1
-        #action = action[0]
-
         assert len(action) == self.action_count
+        self.current_action = action
+        #self.current_action = np.clip(self.current_action, [0.0] * self.action_count, [23.0] * self.action_count)
 
-        parsed_action_list = []
+        integer_actions = self.current_action.astype(int)
 
-        for token_place in action:
-            if self.is_action_scaled:
-                token_place = token_place
-            else:
-                # Convert to int
-                # Clip the actions
-                token_place = int(token_place * 23)
-                #token_place = 0 if token_place < 0 else token_place
-                #token_place = 25 if token_place > 25 else token_place
-
-            if token_place < 0 or token_place > 23:
-                continue
-
-            parsed_action_list.append(token_place)
-
-            '''
-            if token_place == BackgammonEnv.OFF_MOVE:
-                parsed_action_list.append('off')
-            elif token_place == BackgammonEnv.ON_MOVE:
-                parsed_action_list.append('on')
-            else:
-            '''
-        if len(parsed_action_list) != self.action_count:
-            ob = self._get_obs()
-            episode_over = self.game.is_over()
-            reward = self.info['reward_invalid_move']
-
-            return ob, reward, episode_over or self.current_step == self.STEP, {}
-
-        printed = False
-        if random.uniform(0, 1) < 0.005:
-            printed = True
-            print (action)
-            print (parsed_action_list)
-
-        zipped_action = ((parsed_action_list[0], parsed_action_list[1]), (parsed_action_list[2], parsed_action_list[3]))
-        #zipped_actions = list(itertools.combinations(parsed_action_list, 2))
-        actual_action_set = self.game.get_actions(self.game.last_roll, self.playing_agent)
-        #print "hey", zipped_actions
-
-        '''
-        for action in zipped_actions:
-            first_action = action[0]
-            second_action = action[1]
-
-            if first_action == 'off' or first_action == 'on' or second_action == 'off' or second_action == 'on':
-                continue
-
-            diff = abs(int(first_action) - int(second_action))
-            if diff > 6 or diff == 0:
-                zipped_actions.remove(action)
-        '''
-        if printed:
-            print(self.game.last_roll)
-            #print actual_action_set
-
-        '''
-        constructed_actions = []
-
-        for i in range(0, self.action_count / 2 + 1):  # Cross product all moves possible (min of 0, max of action_count/ 2)
-            constructed_actions += list(itertools.product(zipped_actions, repeat=i))
-
-        if len(actual_action_set) == 0:
-            # No possible moves.
-            #print("No possible moves. Skipping...")
-            reward = 0
-            self.game.play_random()
-        else:
-            # There are some possible moves.
-            #picked_action = list(actual_action_set)[action % len(actual_action_set)]
-            #picked_action = random.choice(list(actual_action_set))
-
-            picked_action = None
-
-            for constructed_action in constructed_actions:
-
-
-            if picked_action is not None:
-                self._take_action(picked_action)
-            else:
-                # No moves done, hence the state didn't change.
-                reward = self.info['reward_invalid_move']
-
-        '''
+        zipped_action = ((integer_actions[0], integer_actions[1]), (integer_actions[2], integer_actions[3]))
+        actual_action_set = list(self.game.get_actions(self.game.last_roll, self.playing_agent))
 
         picked_action = None
+        target_action = actual_action_set[0]
 
-        if zipped_action in actual_action_set:
+        if zipped_action == target_action:
             picked_action = zipped_action
             print("Picked!", picked_action)
             self._take_action(picked_action)
 
+        if random.uniform(0, 1) < 0.002:
+            print action
+            print self.current_action
+            print target_action
+            print (self.game.last_roll)
+
         ob = self._get_obs()
-        episode_over = self.game.is_over() or self.current_step == self.STEP
+        episode_over = self.game.is_over()
 
         if picked_action is not None:
             self.game.play_random()
             reward = self.info['reward_valid_move'] * ob[-1]
-            #print ob[-1]
+            episode_over = True
         else:
-            reward = self.info['reward_invalid_move']
+            target_action_values = [target_action[0][0] / 25.0, target_action[0][1] / 25.0, target_action[1][0] / 25.0,
+                                    target_action[1][1] / 25.0]
 
+            target_action_values = np.asarray(target_action_values)
 
-        '''
-        if episode_over:
-            winner = self.game.winner()
-            print("Episode over! Winner: ", winner)
-            if winner == self.playing_agent:
-                reward = self.info['reward_winner']
-            else:
-                reward = self.info['reward_loser']
-        '''
+            distance = np.sum(np.abs(target_action_values - self.current_action))
+
+            ob = np.append(ob, np.asarray(target_action_values - self.current_action))
+
+            #print ob.shape
+
+            reward = self.info['reward_invalid_move'] * distance
 
         return ob, reward, episode_over, {}
 
     def reset(self):
         self.game.reset()
-        self.current_step = 0
-        return self._get_obs()
+        self.current_action = np.asarray([0.0] * self.action_count)
+
+        return np.append(self._get_obs(), self.current_action)
 
     def render(self, mode='human', close=False):
         pass
