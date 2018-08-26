@@ -270,7 +270,7 @@ class Game:
         Resets game to original layout.
         """
         self.current_win = 0
-        random.seed(1992)
+        #random.seed(1992)
 
         self.grid = [[] for _ in range(Game.NUMCOLS)]
 
