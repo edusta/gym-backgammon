@@ -32,6 +32,7 @@ class Game:
     # Original
     def extract_features(self, player):
         features = []
+
         for p in self.players:
             for col in self.grid:
                 feats = [0.] * 6
@@ -41,14 +42,12 @@ class Game:
                 features += feats
             features.append(float(len(self.bar_pieces[p])) / 10.0)
             features.append(float(len(self.off_pieces[p])) / self.num_pieces[p])
-            break
 
         # Adding the rolled dice to the features
         features += [self.last_roll[0] / 6.0, self.last_roll[1] / 6.0]
 
         # Adding current round
-
-        features += [self.current_win / 10.0]
+        # features += [self.current_win / 10.0]
 
         return np.array(features)
 
@@ -71,13 +70,13 @@ class Game:
         return self.winner()
 
     def play_random(self):
-        # random_token = 'o'
-        #self.last_roll = self.roll_dice()
-        #moves = self.get_actions(self.last_roll, random_token, nodups=False)
-        #move = random.choice(list(moves)) if moves else None
+        random_token = 'o'
+        self.last_roll = self.roll_dice()
+        moves = self.get_actions(self.last_roll, random_token, nodups=False)
+        move = random.choice(list(moves)) if moves else None
 
-        #if move:
-            #self.take_action(move, random_token)
+        if move:
+            self.take_action(move, random_token)
 
         # Return to first player
         self.last_roll = self.roll_dice()
@@ -270,7 +269,7 @@ class Game:
         Resets game to original layout.
         """
         self.current_win = 0
-        #random.seed(1992)
+        random.seed(1992)
 
         self.grid = [[] for _ in range(Game.NUMCOLS)]
 
